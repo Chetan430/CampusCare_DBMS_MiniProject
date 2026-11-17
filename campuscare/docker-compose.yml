@@ -1,0 +1,18 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: campuscare-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: campuscare_demo_only
+      POSTGRES_DB: campuscare
+    ports:
+      - "5432:5432"
+    volumes:
+      - campuscare_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d campuscare"]
+      interval: 5s
+      retries: 20
+volumes:
+  campuscare_pgdata:

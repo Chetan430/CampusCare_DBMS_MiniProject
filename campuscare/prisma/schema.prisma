@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  requester
+  technician
+  admin
+}
+
+enum TicketStatus {
+  open
+  assigned
+  in_progress
+  resolved
+  closed
+  reopened
+}
+
+enum Priority {
+  low
+  medium
+  high
+  urgent
+}
+
+model User {
+  id             String       @id @default(uuid()) @db.Uuid
+  name           String
+  email          String       @unique
+  passwordHash   String       @map("password_hash")
+  role           Role
+  department     String?
+  skillTags      String[]     @default([]) @map("skill_tags")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  ticketsRaised     Ticket[]        @relation("Requester")
+  assignmentsTaken  Assignment[]    @relation("Technician")
+  assignmentsMade   Assignment[]    @relation("AssignedBy")
+  statusChangesMade StatusHistory[] @relation("ChangedBy")
+
+  @@map("users")
+}
+
+model Location {
+  id           String   @id @default(uuid()) @db.Uuid
+  building     String
+  floor        String?
+  roomNo       String?  @map("room_no")
+  locationType String?  @map("location_type")
+
+  tickets Ticket[]
+
+  @@map("locations")
+}
+
+model Category {
+  id              String @id @default(uuid()) @db.Uuid
+  name            String @unique
+  defaultSlaHours Int    @default(48) @map("default_sla_hours")
+
+  tickets Ticket[]
+
+  @@map("categories")
+}
+
+model Ticket {
+  id          String       @id @default(uuid()) @db.Uuid
+  requesterId String       @map("requester_id") @db.Uuid
+  categoryId  String       @map("category_id") @db.Uuid
+  locationId  String       @map("location_id") @db.Uuid
+  title       String
+  description String
+  status      TicketStatus @default(open)
+  priority    Priority     @default(medium)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  resolvedAt  DateTime?    @map("resolved_at")
+  slaDueAt    DateTime?    @map("sla_due_at")
+  embeddingSource String     @default("none") @map("embedding_source")
+  descriptionEmbedding Unsupported("vector(384)")? @map("description_embedding")
+
+  requester    User            @relation("Requester", fields: [requesterId], references: [id])
+  category     Category        @relation(fields: [categoryId], references: [id])
+  location     Location        @relation(fields: [locationId], references: [id])
+  assignments  Assignment[]
+  history      StatusHistory[]
+  feedback     Feedback?
+  duplicatesOf DuplicateLink[] @relation("SourceTicket")
+  duplicatedBy DuplicateLink[] @relation("SimilarTicket")
+
+  @@index([status, categoryId])
+  @@map("tickets")
+}
+
+model Assignment {
+  id           String    @id @default(uuid()) @db.Uuid
+  ticketId     String    @map("ticket_id") @db.Uuid
+  technicianId String    @map("technician_id") @db.Uuid
+  assignedById String    @map("assigned_by") @db.Uuid
+  assignedAt   DateTime  @default(now()) @map("assigned_at")
+  unassignedAt DateTime? @map("unassigned_at")
+
+  ticket     Ticket @relation(fields: [ticketId], references: [id])
+  technician User   @relation("Technician", fields: [technicianId], references: [id])
+  assignedBy User   @relation("AssignedBy", fields: [assignedById], references: [id])
+
+  @@index([technicianId])
+  @@map("assignments")
+}
+
+model StatusHistory {
+  id        String       @id @default(uuid()) @db.Uuid
+  ticketId  String       @map("ticket_id") @db.Uuid
+  changedBy String       @map("changed_by") @db.Uuid
+  oldStatus TicketStatus @map("old_status")
+  newStatus TicketStatus @map("new_status")
+  changedAt DateTime     @default(now()) @map("changed_at")
+  note      String?
+
+  ticket        Ticket @relation(fields: [ticketId], references: [id])
+  changedByUser User   @relation("ChangedBy", fields: [changedBy], references: [id])
+
+  @@map("status_history")
+}
+
+model Feedback {
+  id          String   @id @default(uuid()) @db.Uuid
+  ticketId    String   @unique @map("ticket_id") @db.Uuid
+  rating      Int
+  comment     String?
+  submittedAt DateTime @default(now()) @map("submitted_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+
+  @@map("feedback")
+}
+
+model DuplicateLink {
+  id               String   @id @default(uuid()) @db.Uuid
+  ticketId         String   @map("ticket_id") @db.Uuid
+  similarTicketId  String   @map("similar_ticket_id") @db.Uuid
+  similarityScore  Float    @map("similarity_score")
+  detectedAt       DateTime @default(now()) @map("detected_at")
+
+  ticket        Ticket @relation("SourceTicket", fields: [ticketId], references: [id])
+  similarTicket Ticket @relation("SimilarTicket", fields: [similarTicketId], references: [id])
+
+  @@unique([ticketId, similarTicketId])
+  @@map("duplicate_links")
+}

@@ -1,0 +1,18 @@
+digraph Architecture {
+ graph [rankdir=LR, bgcolor="white", pad=".3", nodesep=".35", ranksep=".65"];
+ node [shape=box, style="rounded,filled", fillcolor="#e9f3f5", color="#4c8590", fontname="DejaVu Sans", fontsize=12, margin=".2,.15"];
+ requester [label="Requester\nRaise / track / rate"];
+ technician [label="Technician\nProgress / resolve"];
+ admin [label="Admin\nAssign / analyze"];
+ next [label="Next.js 14\nRole-based dashboards", fillcolor="#d7eef0"];
+ auth [label="NextAuth + bcrypt\nJWT sessions"];
+ api [label="Next.js API Routes\nZod + access control", fillcolor="#c5e5e9"];
+ prisma [label="Prisma + transactions"];
+ embeddings [label="MiniLM 384-d\nOn-server inference"];
+ db [label="PostgreSQL\n8 relational tables", fillcolor="#b1d8c5"];
+ vector [label="pgvector\nCosine + HNSW", fillcolor="#b1d8c5"];
+ logic [label="Triggers + function + views\nSLA / audit / workload"];
+ requester -> next; technician -> next; admin -> next;
+ next -> auth; next -> api; api -> prisma; api -> embeddings;
+ prisma -> db; embeddings -> vector; prisma -> vector; db -> logic;
+}
